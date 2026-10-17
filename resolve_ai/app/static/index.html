@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resolve AI</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#15181d; --mute:#5a6472; --line:#d9dee5; --brand:#1d4ed8; --brand-ink:#fff;
+          --me:#e8efff; --bot:#f1f3f6; --ok:#157347; --warn:#9a5b00; --bad:#b42318; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1216; --card:#171b21; --ink:#e8ebef; --mute:#9aa4b2; --line:#2a313b;
+          --brand:#6b93ff; --brand-ink:#0b1020; --me:#1d2a4a; --bot:#1f242c; --ok:#4cc38a; --warn:#f0b24a; --bad:#ff7b72; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; align-items:center; gap:16px; padding:12px 20px; background:var(--card); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; } nav { display:flex; gap:6px; margin-left:auto; }
+  button, input, select { font:inherit; color:inherit; }
+  button { cursor:pointer; border:1px solid var(--line); background:var(--card); padding:7px 12px; border-radius:8px; }
+  button.primary { background:var(--brand); color:var(--brand-ink); border-color:var(--brand); font-weight:600; }
+  button[aria-selected="true"] { background:var(--brand); color:var(--brand-ink); border-color:var(--brand); }
+  button.danger { color:var(--bad); } button:disabled { opacity:.5; cursor:not-allowed; }
+  :focus-visible { outline:3px solid var(--brand); outline-offset:2px; }
+  input[type=text], input[type=email], input[type=password], select { border:1px solid var(--line); background:var(--card); border-radius:8px; padding:8px 10px; width:100%; }
+  main { max-width:960px; margin:20px auto; padding:0 16px; display:grid; gap:16px; }
+  section.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  h2 { margin:0 0 10px; font-size:16px; } .row { display:flex; gap:8px; align-items:end; flex-wrap:wrap; } .row > * { flex:1; min-width:140px; } .row > button { flex:0 0 auto; }
+  label { display:block; font-size:13px; color:var(--mute); margin-bottom:3px; }
+  #log { height:380px; overflow:auto; display:flex; flex-direction:column; gap:10px; padding:4px; }
+  .msg { max-width:82%; padding:9px 12px; border-radius:12px; white-space:pre-wrap; } .me { background:var(--me); align-self:flex-end; } .bot { background:var(--bot); align-self:flex-start; }
+  .meta { font-size:12px; color:var(--mute); margin-top:4px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .badge { font-size:12px; padding:1px 8px; border-radius:99px; border:1px solid var(--line); } .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+  table { width:100%; border-collapse:collapse; font-size:14px; } th, td { text-align:left; padding:7px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .hint { color:var(--mute); font-size:13px; } .hidden { display:none !important; }
+  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:9px 14px; border-radius:8px; }
+  .sr { position:absolute; left:-9999px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Resolve AI</h1><span class="hint">AI customer support</span>
+  <nav role="tablist" aria-label="Views">
+    <button role="tab" id="tab-chat" aria-selected="true" aria-controls="view-chat">Customer chat</button>
+    <button role="tab" id="tab-admin" aria-selected="false" aria-controls="view-admin">Admin</button>
+  </nav>
+</header>
+<main>
+<div id="view-chat" role="tabpanel" aria-labelledby="tab-chat" style="display:grid;gap:16px">
+  <section class="card">
+    <h2>Start a conversation</h2>
+    <div class="row">
+      <div><label for="tenant">Business (tenant slug)</label><input id="tenant" type="text" value="demo-store" autocomplete="off"></div>
+      <button id="start" class="primary">Start chat</button>
+    </div>
+    <p class="hint">Try: “What is your return policy?” · “Where is my order?” (ORD-1001 + alice@example.com) · “Talk to a human”.</p>
+  </section>
+  <section class="card" id="chatcard" hidden>
+    <div class="row" style="justify-content:space-between;margin-bottom:8px"><h2 style="margin:0">Conversation <span id="cstatus" class="badge">open</span></h2>
+      <button id="escalate" class="danger">Talk to a human</button></div>
+    <div id="log" role="log" aria-live="polite" aria-label="Conversation messages" tabindex="0"></div>
+    <form id="form" class="row" style="margin-top:10px">
+      <div style="flex:3"><label class="sr" for="text">Your message</label><input id="text" type="text" placeholder="Type your question…" maxlength="2000" autocomplete="off" required></div>
+      <button class="primary" id="send">Send</button>
+    </form>
+  </section>
+</div>
+
+<div id="view-admin" role="tabpanel" aria-labelledby="tab-admin" hidden style="display:none;gap:16px">
+  <section class="card" id="logincard">
+    <h2>Staff sign-in</h2>
+    <form id="loginform" class="row">
+      <div><label for="email">Email</label><input id="email" type="email" autocomplete="username" required></div>
+      <div><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required></div>
+      <button class="primary">Sign in</button>
+    </form>
+  </section>
+  <div id="admin" class="hidden" style="display:grid;gap:16px">
+    <section class="card">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">Knowledge sources</h2><button id="logout">Sign out</button></div>
+      <form id="upform" class="row" style="margin:10px 0">
+        <div><label for="file">PDF, .txt or .md</label><input id="file" type="file" accept=".pdf,.txt,.md" required></div>
+        <div><label for="title">Title (optional)</label><input id="title" type="text"></div>
+        <button class="primary">Upload</button>
+      </form>
+      <table><thead><tr><th>Title</th><th>Status</th><th>Chunks</th><th></th></tr></thead><tbody id="sources"></tbody></table>
+    </section>
+    <section class="card"><h2>Tickets</h2>
+      <table><thead><tr><th>Ticket</th><th>Summary</th><th>Priority</th><th>Status</th></tr></thead><tbody id="tickets"></tbody></table></section>
+    <section class="card"><h2>Conversations</h2>
+      <table><thead><tr><th>ID</th><th>Status</th><th>Updated</th><th></th></tr></thead><tbody id="convs"></tbody></table>
+      <div id="transcript" class="hint" style="margin-top:10px"></div></section>
+  </div>
+</div>
+</main>
+<div id="toast" class="hidden" role="status"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const api = "/api/v1";
+let conv = null, staff = null;
+
+function el(tag, props = {}, ...kids) {           // all dynamic content goes through textContent (no HTML injection)
+  const n = document.createElement(tag);
+  Object.entries(props).forEach(([k, v]) => k === "class" ? n.className = v : k.startsWith("on") ? n.addEventListener(k.slice(2), v) : n.setAttribute(k, v));
+  kids.forEach(k => n.append(k));
+  return n;
+}
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.remove("hidden"); setTimeout(() => t.classList.add("hidden"), 3500); }
+async function call(path, { method = "GET", token, json, form } = {}) {
+  const headers = {}; if (token) headers.Authorization = "Bearer " + token; if (json) headers["Content-Type"] = "application/json";
+  const r = await fetch(api + path, { method, headers, body: json ? JSON.stringify(json) : form });
+  if (r.status === 204) return null;
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error ? data.error.message : "Request failed (" + r.status + ")");
+  return data;
+}
+function tab(name) {
+  for (const t of ["chat", "admin"]) {
+    $("tab-" + t).setAttribute("aria-selected", t === name);
+    const v = $("view-" + t); v.hidden = t !== name; v.style.display = t === name ? "grid" : "none";
+  }
+}
+$("tab-chat").onclick = () => tab("chat"); $("tab-admin").onclick = () => tab("admin");
+
+// ---------------- customer chat
+function bubble(role, text, extra) {
+  const b = el("div", { class: "msg " + (role === "customer" ? "me" : "bot") }, text);
+  const wrap = el("div", { style: "display:flex;flex-direction:column;" + (role === "customer" ? "align-items:flex-end" : "") }, b);
+  if (extra) wrap.append(extra);
+  $("log").append(wrap); $("log").scrollTop = $("log").scrollHeight;
+}
+function setStatus(s) { const c = $("cstatus"); c.textContent = s; c.className = "badge " + (s === "escalated" ? "warn" : s === "closed" ? "bad" : "ok"); }
+function metaFor(r) {
+  const m = el("div", { class: "meta" });
+  if (r.answer_type === "document" && r.sources.length) m.append(el("span", {}, "Sources: " + r.sources.map(s => s.title + (s.page ? " p." + s.page : s.section ? " › " + s.section : "")).join("; ")));
+  if (r.answer_type === "order_api") m.append(el("span", {}, "From our order system"));
+  if (r.status === "fallback") m.append(el("span", { class: "warn" }, "Not found in our documents"));
+  [["👍", "helpful"], ["👎", "not_helpful"]].forEach(([icon, v]) =>
+    m.append(el("button", { "aria-label": v === "helpful" ? "Mark helpful" : "Mark not helpful", onclick: async (e) => {
+      try { await call(`/conversations/${conv.id}/messages/${r.message_id}/feedback`, { method: "POST", token: conv.token, json: { value: v } }); e.target.disabled = true; toast("Thanks for the feedback"); } catch (x) { toast(x.message); } } }, icon)));
+  return m;
+}
+$("start").onclick = async () => {
+  try {
+    const c = await call("/conversations", { method: "POST", json: { tenant: $("tenant").value.trim() } });
+    conv = { id: c.id, token: c.access_token }; $("log").replaceChildren(); $("chatcard").hidden = false; setStatus(c.status);
+    bubble("assistant", "Hi! Ask me about returns, delivery or products, check an order, or ask for a human."); $("text").focus();
+  } catch (x) { toast(x.message); }
+};
+$("form").onsubmit = async (e) => {
+  e.preventDefault(); const text = $("text").value.trim(); if (!text || !conv) return;
+  $("text").value = ""; bubble("customer", text); $("send").disabled = true;
+  try { const r = await call(`/conversations/${conv.id}/messages`, { method: "POST", token: conv.token, json: { message: text } });
+        bubble("assistant", r.answer, metaFor(r)); setStatus(r.conversation_status); }
+  catch (x) { bubble("assistant", x.message); } finally { $("send").disabled = false; $("text").focus(); }
+};
+$("escalate").onclick = async () => {
+  if (!conv) return;
+  try { const r = await call(`/conversations/${conv.id}/escalate`, { method: "POST", token: conv.token, json: {} }); bubble("assistant", r.message); setStatus(r.conversation_status); }
+  catch (x) { toast(x.message); }
+};
+
+// ---------------- admin
+async function login(email, password) {
+  const d = await call("/auth/login", { method: "POST", json: { email, password } });
+  staff = d.access_token; $("logincard").classList.add("hidden"); $("admin").classList.remove("hidden"); refresh();
+}
+$("loginform").onsubmit = async (e) => { e.preventDefault(); try { await login($("email").value, $("password").value); $("password").value = ""; } catch (x) { toast(x.message); } };
+$("logout").onclick = () => { staff = null; $("admin").classList.add("hidden"); $("logincard").classList.remove("hidden"); };
+$("upform").onsubmit = async (e) => {
+  e.preventDefault(); const f = new FormData(); f.append("file", $("file").files[0]); if ($("title").value.trim()) f.append("title", $("title").value.trim());
+  try { await call("/sources", { method: "POST", token: staff, form: f }); toast("Uploaded"); $("upform").reset(); refresh(); } catch (x) { toast(x.message); }
+};
+async function refresh() {
+  if (!staff) return;
+  try {
+    const [s, t, c] = await Promise.all([call("/sources", { token: staff }), call("/tickets", { token: staff }), call("/conversations", { token: staff })]);
+    $("sources").replaceChildren(...s.items.map(i => el("tr", {}, el("td", {}, i.title), el("td", { class: i.status === "ready" ? "ok" : i.status === "failed" ? "bad" : "warn", title: i.error || "" }, i.status + (i.error ? " – " + i.error : "")), el("td", {}, String(i.chunk_count)),
+      el("td", {}, el("button", { class: "danger", "aria-label": "Delete " + i.title, onclick: async () => { if (confirm("Delete this source and its indexed content?")) { try { await call("/sources/" + i.id, { method: "DELETE", token: staff }); refresh(); } catch (x) { toast(x.message); } } } }, "Delete")))));
+    $("tickets").replaceChildren(...t.items.map(i => {
+      const sel = el("select", { "aria-label": "Status of " + i.id, onchange: async (e) => { try { await call("/tickets/" + i.id, { method: "PATCH", token: staff, json: { status: e.target.value } }); toast("Updated"); } catch (x) { toast(x.message); } } },
+        ...["open", "in_progress", "resolved"].map(v => { const o = el("option", { value: v }, v); if (v === i.status) o.selected = true; return o; }));
+      return el("tr", {}, el("td", {}, i.id), el("td", {}, i.summary), el("td", {}, i.priority), el("td", {}, sel)); }));
+    $("convs").replaceChildren(...c.items.map(i => el("tr", {}, el("td", {}, i.id), el("td", {}, i.status), el("td", {}, new Date(i.updated_at).toLocaleString()),
+      el("td", {}, el("button", { onclick: () => openConv(i.id) }, "View")))));
+  } catch (x) { toast(x.message); }
+}
+async function openConv(id) {
+  try { const m = await call(`/conversations/${id}/messages?limit=200`, { token: staff });
+    $("transcript").replaceChildren(el("strong", {}, "Transcript " + id), ...m.items.map(i => el("div", {}, (i.role === "customer" ? "Customer: " : "Assistant: ") + i.content)));
+  } catch (x) { toast(x.message); }
+}
+</script>
+</body>
+</html>

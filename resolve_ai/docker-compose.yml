@@ -1,0 +1,31 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: resolve
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-resolve}
+      POSTGRES_DB: resolve
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resolve -d resolve"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://resolve:${POSTGRES_PASSWORD:-resolve}@db:5432/resolve
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (e.g. `openssl rand -hex 32`)}
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
